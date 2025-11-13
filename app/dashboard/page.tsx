@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -8,13 +8,23 @@ import { useAuthStore } from '@/store/authStore';
 import { useIdeasStore } from '@/store/ideasStore';
 import { Button } from '@/components/ui/button';
 import { IdeaCaptureModal } from '@/components/dashboard/IdeaCaptureModal';
-import { IdeaCard } from '@/components/dashboard/IdeaCard';
+import { SearchBar } from '@/components/dashboard/SearchBar';
+import { FilterSort, type SortOption, type FilterOptions } from '@/components/dashboard/FilterSort';
+import { VirtualIdeaGrid } from '@/components/dashboard/VirtualIdeaGrid';
+import { searchIdeas, filterIdeas, sortIdeas, extractUniqueTags } from '@/lib/searchUtils';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, userProfile, isAuthenticated, isLoading, logout } = useAuthStore();
   const { ideas, fetchIdeas, createIdea } = useIdeasStore();
   const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [filters, setFilters] = useState<FilterOptions>({
+    tags: [],
+    hasExplorations: null,
+    dateRange: 'all',
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -32,8 +42,29 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, user, userProfile, router, fetchIdeas]);
 
+  // Process ideas: search, filter, and sort
+  const processedIdeas = useMemo(() => {
+    let result = ideas;
+    
+    // Apply search
+    if (searchQuery.trim()) {
+      result = searchIdeas(result, searchQuery);
+    }
+    
+    // Apply filters
+    result = filterIdeas(result, filters);
+    
+    // Apply sorting
+    result = sortIdeas(result, sortBy);
+    
+    return result;
+  }, [ideas, searchQuery, filters, sortBy]);
+
+  // Extract available tags for filter dropdown
+  const availableTags = useMemo(() => extractUniqueTags(ideas), [ideas]);
+
   const handleCreateIdea = async (text: string, tags: string[]) => {
-    await createIdea(text);
+    await createIdea(text, tags);
   };
 
   const handleIdeaClick = (ideaId: string) => {
@@ -105,21 +136,59 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Your Ideas</h2>
-              <p className="text-sm text-muted-foreground">
-                {ideas.length} {ideas.length === 1 ? 'idea' : 'ideas'}
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {ideas.map((idea) => (
-                <IdeaCard
-                  key={idea.ideaId}
-                  idea={idea}
-                  onClick={() => handleIdeaClick(idea.ideaId)}
+            {/* Search and Filter Bar */}
+            <div className="mb-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Your Ideas</h2>
+                <p className="text-sm text-muted-foreground">
+                  {processedIdeas.length} of {ideas.length} {ideas.length === 1 ? 'idea' : 'ideas'}
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search ideas, tags, content..."
+                  />
+                </div>
+                <FilterSort
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  filters={filters}
+                  onFilterChange={setFilters}
+                  availableTags={availableTags}
                 />
-              ))}
+              </div>
             </div>
+
+            {/* Ideas Grid with Virtual Scrolling */}
+            {processedIdeas.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground mb-4">
+                  No ideas match your search or filters
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilters({
+                      tags: [],
+                      hasExplorations: null,
+                      dateRange: 'all',
+                    });
+                  }}
+                >
+                  Clear Search & Filters
+                </Button>
+              </div>
+            ) : (
+              <VirtualIdeaGrid
+                ideas={processedIdeas}
+                onIdeaClick={handleIdeaClick}
+              />
+            )}
           </div>
         )}
       </main>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -28,9 +28,21 @@ const PRIMARY_USE_CASES = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, createProfile } = useAuthStore();
+  const { user, userProfile, isAuthenticated, isLoading: authLoading, createProfile } = useAuthStore();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && userProfile) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, authLoading, userProfile, router]);
 
   const [formData, setFormData] = useState({
     areasOfInterest: [] as string[],
@@ -89,6 +101,21 @@ export default function OnboardingPage() {
   const canProceedStep2 = formData.professionalRole && formData.professionalIndustry;
   const canProceedStep3 = formData.thinkingStyle !== '';
   const canProceedStep4 = formData.primaryUseCase !== '';
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/10 via-background to-secondary/10">

@@ -36,10 +36,11 @@ export default function SignupPage() {
 
     try {
       await signup(email, password, name);
+      // Small delay to ensure state is persisted
+      await new Promise(resolve => setTimeout(resolve, 100));
       router.push('/onboarding');
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
-    } finally {
       setIsLoading(false);
     }
   };

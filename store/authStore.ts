@@ -35,14 +35,22 @@ export const useAuthStore = create<AuthState>()(
 
           // Fetch user profile
           try {
-            const profile = await databases.getDocument(
+            const profileDoc = await databases.getDocument(
               DATABASE_ID,
               COLLECTIONS.USERS,
               user.$id
             );
+            // Parse JSON strings back to objects
+            const profile: UserProfile = {
+              userId: profileDoc.userId as string,
+              profile: typeof profileDoc.profile === 'string' ? JSON.parse(profileDoc.profile) : profileDoc.profile,
+              preferences: typeof profileDoc.preferences === 'string' ? JSON.parse(profileDoc.preferences) : profileDoc.preferences,
+              createdAt: profileDoc.createdAt as string,
+              lastActive: profileDoc.lastActive as string,
+            };
             set({
               user,
-              userProfile: profile as unknown as UserProfile,
+              userProfile: profile,
               isAuthenticated: true,
               isLoading: false
             });
@@ -100,14 +108,22 @@ export const useAuthStore = create<AuthState>()(
 
           // Fetch user profile
           try {
-            const profile = await databases.getDocument(
+            const profileDoc = await databases.getDocument(
               DATABASE_ID,
               COLLECTIONS.USERS,
               user.$id
             );
+            // Parse JSON strings back to objects
+            const profile: UserProfile = {
+              userId: profileDoc.userId as string,
+              profile: typeof profileDoc.profile === 'string' ? JSON.parse(profileDoc.profile) : profileDoc.profile,
+              preferences: typeof profileDoc.preferences === 'string' ? JSON.parse(profileDoc.preferences) : profileDoc.preferences,
+              createdAt: profileDoc.createdAt as string,
+              lastActive: profileDoc.lastActive as string,
+            };
             set({
               user,
-              userProfile: profile as unknown as UserProfile,
+              userProfile: profile,
               isAuthenticated: true,
               isLoading: false
             });
@@ -143,11 +159,21 @@ export const useAuthStore = create<AuthState>()(
             lastActive: now,
           };
 
+          // Flatten the nested structure for Appwrite
+          const flattenedProfile = {
+            userId: profile.userId,
+            // Store nested objects as JSON strings
+            profile: JSON.stringify(profile.profile),
+            preferences: JSON.stringify(profile.preferences),
+            createdAt: profile.createdAt,
+            lastActive: profile.lastActive,
+          };
+
           await databases.createDocument(
             DATABASE_ID,
             COLLECTIONS.USERS,
             user.$id,
-            profile
+            flattenedProfile
           );
 
           set({ userProfile: profile });
@@ -168,11 +194,20 @@ export const useAuthStore = create<AuthState>()(
             lastActive: new Date().toISOString(),
           };
 
+          // Flatten the nested structure for Appwrite
+          const flattenedProfile = {
+            userId: updatedProfile.userId,
+            profile: JSON.stringify(updatedProfile.profile),
+            preferences: JSON.stringify(updatedProfile.preferences),
+            createdAt: updatedProfile.createdAt,
+            lastActive: updatedProfile.lastActive,
+          };
+
           await databases.updateDocument(
             DATABASE_ID,
             COLLECTIONS.USERS,
             user.$id,
-            updatedProfile
+            flattenedProfile
           );
 
           set({ userProfile: updatedProfile });

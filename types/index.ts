@@ -54,12 +54,14 @@ export interface Criticality {
   content: string;
   status: 'real_concern' | 'manageable' | 'not_applicable';
   exploredAt: string;
+  editedByUser?: boolean;
 }
 
 export interface Opportunity {
   type: string;
   content: string;
   exploredAt: string;
+  editedByUser?: boolean;
 }
 
 export interface Exploration {

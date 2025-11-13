@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { useState, KeyboardEvent } from 'react';
+import { X, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,33 +17,16 @@ interface IdeaCaptureModalProps {
 
 export function IdeaCaptureModal({ isOpen, onClose, onSubmit }: IdeaCaptureModalProps) {
   const [text, setText] = useState('');
-  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [stage, setStage] = useState<'input' | 'tags'>('input');
 
-  const handleInitialSubmit = async () => {
+  const handleSubmit = async () => {
     if (!text.trim()) return;
 
     setIsProcessing(true);
     try {
-      // In a real app, this would call the AI to generate tags
-      // For now, we'll just move to the tags stage
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuggestedTags(['Idea', 'Innovation', 'Concept']);
-      setSelectedTags(['Idea', 'Innovation', 'Concept']);
-      setStage('tags');
-    } catch (error) {
-      console.error('Error processing idea:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFinalSubmit = async () => {
-    setIsProcessing(true);
-    try {
-      await onSubmit(text, selectedTags);
+      await onSubmit(text, tags);
       handleClose();
     } catch (error) {
       console.error('Error submitting idea:', error);
@@ -53,16 +37,28 @@ export function IdeaCaptureModal({ isOpen, onClose, onSubmit }: IdeaCaptureModal
 
   const handleClose = () => {
     setText('');
-    setSuggestedTags([]);
-    setSelectedTags([]);
-    setStage('input');
+    setTags([]);
+    setTagInput('');
     onClose();
   };
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
+  const addTag = () => {
+    const trimmedTag = tagInput.trim();
+    if (trimmedTag && !tags.includes(trimmedTag)) {
+      setTags([...tags, trimmedTag]);
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleTagInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag();
+    }
   };
 
   return (
@@ -87,9 +83,7 @@ export function IdeaCaptureModal({ isOpen, onClose, onSubmit }: IdeaCaptureModal
           >
             <Card className="p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">
-                  {stage === 'input' ? 'Capture Your Idea' : 'Confirm Tags'}
-                </h2>
+                <h2 className="text-xl font-semibold">Capture Your Idea</h2>
                 <button
                   onClick={handleClose}
                   className="text-muted-foreground hover:text-foreground transition-colors"
@@ -99,8 +93,9 @@ export function IdeaCaptureModal({ isOpen, onClose, onSubmit }: IdeaCaptureModal
                 </button>
               </div>
 
-              {stage === 'input' && (
-                <div className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Your Idea</label>
                   <Textarea
                     placeholder="What's your idea? (50-200 characters recommended)"
                     value={text}
@@ -109,74 +104,68 @@ export function IdeaCaptureModal({ isOpen, onClose, onSubmit }: IdeaCaptureModal
                     autoFocus
                     disabled={isProcessing}
                   />
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-sm mt-1">
                     <span className="text-muted-foreground">
                       {text.length} characters
                     </span>
                   </div>
-                  <Button
-                    onClick={handleInitialSubmit}
-                    disabled={!text.trim() || isProcessing}
-                    className="w-full"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Continue'
-                    )}
-                  </Button>
                 </div>
-              )}
 
-              {stage === 'tags' && (
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      We've suggested some tags. Click to toggle them or add your own.
-                    </p>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {suggestedTags.map(tag => (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Tags (Optional)</label>
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      placeholder="Add a tag..."
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleTagInputKeyDown}
+                      disabled={isProcessing}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={addTag}
+                      disabled={!tagInput.trim() || isProcessing}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {tags.map(tag => (
                         <Badge
                           key={tag}
-                          variant={selectedTags.includes(tag) ? 'default' : 'outline'}
+                          variant="secondary"
                           className="cursor-pointer px-3 py-1"
-                          onClick={() => toggleTag(tag)}
+                          onClick={() => removeTag(tag)}
                         >
                           {tag}
+                          <X className="ml-1 h-3 w-3" />
                         </Badge>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setStage('input')}
-                      disabled={isProcessing}
-                      className="flex-1"
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      onClick={handleFinalSubmit}
-                      disabled={isProcessing}
-                      className="flex-1"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        'Save Idea'
-                      )}
-                    </Button>
-                  </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    AI will suggest additional tags after saving
+                  </p>
                 </div>
-              )}
+
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!text.trim() || isProcessing}
+                  className="w-full"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Idea'
+                  )}
+                </Button>
+              </div>
             </Card>
           </motion.div>
         </>

@@ -1,10 +1,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AITagSuggestion, AIExpansionDirection, UserProfile } from '@/types';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+// Get API key from environment variable
+const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 
-// Using Gemini Flash for fast, cost-effective responses
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+if (!apiKey) {
+  console.error('GOOGLE_GEMINI_API_KEY is not set in environment variables');
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
+
+// Using Gemini 2.0 Flash for fast, cost-effective responses with latest features
+const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
 
 /**
  * Generate tag suggestions for a new idea
@@ -217,6 +224,110 @@ Only include connections with strength >= 0.5. Limit to top 3 connections.
     return [];
   } catch (error) {
     console.error('Error finding connections:', error);
+    return [];
+  }
+}
+
+/**
+ * Generate criticality analysis for an idea
+ */
+export async function generateCriticalities(
+  ideaText: string,
+  userProfile?: UserProfile
+): Promise<{ category: string; content: string; severity: 'high' | 'medium' | 'low' }[]> {
+  try {
+    const prompt = `
+User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+Idea: "${ideaText}"
+
+Analyze potential criticalities, challenges, or concerns with this idea. Generate 3-5 criticalities covering:
+- Technical challenges
+- Market/business risks
+- Resource requirements
+- Implementation barriers
+- Ethical or social concerns
+
+For each criticality, provide:
+- Category (e.g., "Technical Complexity", "Market Risk", "Resource Constraints")
+- Content (2-3 sentences explaining the concern)
+- Severity (high, medium, or low)
+
+Format as JSON array:
+[
+  {
+    "category": "Category Name",
+    "content": "Detailed explanation of the criticality",
+    "severity": "high"
+  }
+]
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Try to parse JSON from the response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      const criticalities = JSON.parse(jsonMatch[0]);
+      return criticalities.slice(0, 5);
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error generating criticalities:', error);
+    return [];
+  }
+}
+
+/**
+ * Generate opportunity analysis for an idea
+ */
+export async function generateOpportunities(
+  ideaText: string,
+  userProfile?: UserProfile
+): Promise<{ type: string; content: string; potential: 'high' | 'medium' | 'low' }[]> {
+  try {
+    const prompt = `
+User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+Idea: "${ideaText}"
+
+Identify potential opportunities and positive aspects of this idea. Generate 3-5 opportunities covering:
+- Market opportunities
+- Innovation potential
+- Competitive advantages
+- Growth possibilities
+- Positive impact areas
+
+For each opportunity, provide:
+- Type (e.g., "Market Gap", "Innovation", "Scalability", "Social Impact")
+- Content (2-3 sentences explaining the opportunity)
+- Potential (high, medium, or low)
+
+Format as JSON array:
+[
+  {
+    "type": "Opportunity Type",
+    "content": "Detailed explanation of the opportunity",
+    "potential": "high"
+  }
+]
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Try to parse JSON from the response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      const opportunities = JSON.parse(jsonMatch[0]);
+      return opportunities.slice(0, 5);
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error generating opportunities:', error);
     return [];
   }
 }

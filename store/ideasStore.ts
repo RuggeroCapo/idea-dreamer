@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Idea, Tag, ExpansionPrompt, Criticality, Opportunity } from '@/types';
 import { databases, DATABASE_ID, COLLECTIONS, ID } from '@/lib/appwrite';
-import { generateTags, generateExplorationDirections, expandContent, generateDocumentSummary } from '@/lib/gemini';
 import { useAuthStore } from './authStore';
 
 interface IdeasState {
@@ -16,6 +15,9 @@ interface IdeasState {
   deleteIdea: (ideaId: string) => Promise<void>;
   setCurrentIdea: (ideaId: string | null) => void;
   addExpansion: (ideaId: string, direction: string, prompt: string) => Promise<void>;
+  addCriticality: (ideaId: string, category: string, content: string) => Promise<void>;
+  addOpportunity: (ideaId: string, type: string, content: string) => Promise<void>;
+  updateCriticalityStatus: (ideaId: string, criticalityIndex: number, status: 'real_concern' | 'manageable' | 'not_applicable') => Promise<void>;
   updateDocument: (ideaId: string) => Promise<void>;
 }
 
@@ -30,14 +32,31 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
 
     try {
       set({ isLoading: true });
+      const { Query } = await import('appwrite');
       const response = await databases.listDocuments(
         DATABASE_ID,
         COLLECTIONS.IDEAS,
-        // TODO: Add query to filter by userId
+        [
+          Query.equal('userId', user.$id),
+          Query.orderDesc('$createdAt'),
+          Query.limit(1000) // Adjust based on expected max ideas per user
+        ]
       );
 
+      // Parse JSON strings back to objects
+      const ideas = response.documents.map(doc => ({
+        ideaId: doc.ideaId,
+        userId: doc.userId,
+        originalIdea: JSON.parse(doc.originalIdea as string),
+        tags: JSON.parse(doc.tags as string),
+        exploration: JSON.parse(doc.exploration as string),
+        document: JSON.parse(doc.document as string),
+        connections: JSON.parse(doc.connections as string),
+        metadata: JSON.parse(doc.metadata as string)
+      })) as Idea[];
+
       set({
-        ideas: response.documents as unknown as Idea[],
+        ideas,
         isLoading: false
       });
     } catch (error) {
@@ -46,7 +65,7 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
     }
   },
 
-  createIdea: async (text: string, context?: any) => {
+  createIdea: async (text: string, userTags: string[] = [], context?: any) => {
     const { user, userProfile } = useAuthStore.getState();
     if (!user) throw new Error('User not authenticated');
 
@@ -55,14 +74,36 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
 
       // Generate tags using AI
       const existingTags = get().ideas
-        .flatMap(idea => idea.tags.map(t => t.name))
-        .filter((tag, idx, arr) => arr.indexOf(tag) === idx); // unique
+        .flatMap(idea => idea.tags.map((t: { name: string }) => t.name))
+        .filter((tag: string, idx: number, arr: string[]) => arr.indexOf(tag) === idx); // unique
 
-      const suggestedTags = await generateTags(
-        text,
-        userProfile || undefined,
-        existingTags
-      );
+      const tagsResponse = await fetch('/api/ai/generate-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ideaText: text,
+          userProfile: userProfile || undefined,
+          existingTags
+        })
+      });
+
+      const { tags: aiTags } = await tagsResponse.json();
+
+      // Combine user tags and AI tags
+      const allTags = [
+        ...userTags.map(tag => ({
+          name: tag,
+          source: 'user' as const,
+          confidence: 1.0
+        })),
+        ...aiTags
+          .filter((tag: string) => !userTags.includes(tag))
+          .map((tag: string) => ({
+            name: tag,
+            source: 'ai' as const,
+            confidence: 0.8
+          }))
+      ];
 
       const now = new Date().toISOString();
       const newIdea: Idea = {
@@ -76,11 +117,7 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
             ...context
           }
         },
-        tags: suggestedTags.map(tag => ({
-          name: tag,
-          source: 'ai' as const,
-          confidence: 0.8
-        })),
+        tags: allTags,
         exploration: {
           expansionPrompts: [],
           criticalities: [],
@@ -101,18 +138,34 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
         }
       };
 
-      // Generate initial exploration directions
-      const directions = await generateExplorationDirections(
-        text,
-        userProfile || undefined
-      );
+      // Generate initial exploration directions (optional, can be done later)
+      // const directionsResponse = await fetch('/api/ai/generate-directions', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     ideaText: text,
+      //     userProfile: userProfile || undefined
+      //   })
+      // });
+      // const { directions } = await directionsResponse.json();
 
-      // Save to database
+      // Save to database - flatten nested objects for Appwrite
+      const documentData = {
+        ideaId: newIdea.ideaId,
+        userId: newIdea.userId,
+        originalIdea: JSON.stringify(newIdea.originalIdea),
+        tags: JSON.stringify(newIdea.tags),
+        exploration: JSON.stringify(newIdea.exploration),
+        document: JSON.stringify(newIdea.document),
+        connections: JSON.stringify(newIdea.connections),
+        metadata: JSON.stringify(newIdea.metadata)
+      };
+
       await databases.createDocument(
         DATABASE_ID,
         COLLECTIONS.IDEAS,
         newIdea.ideaId,
-        newIdea
+        documentData
       );
 
       set(state => ({
@@ -138,19 +191,28 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
         }
       };
 
+      // Flatten nested objects for Appwrite
+      const documentData: any = {};
+      if (updates.originalIdea) documentData.originalIdea = JSON.stringify(updates.originalIdea);
+      if (updates.tags) documentData.tags = JSON.stringify(updates.tags);
+      if (updates.exploration) documentData.exploration = JSON.stringify(updates.exploration);
+      if (updates.document) documentData.document = JSON.stringify(updates.document);
+      if (updates.connections) documentData.connections = JSON.stringify(updates.connections);
+      if (updatedIdea.metadata) documentData.metadata = JSON.stringify(updatedIdea.metadata);
+
       await databases.updateDocument(
         DATABASE_ID,
         COLLECTIONS.IDEAS,
         ideaId,
-        updatedIdea
+        documentData
       );
 
       set(state => ({
         ideas: state.ideas.map(idea =>
-          idea.ideaId === ideaId ? { ...idea, ...updatedIdea } : idea
+          idea.ideaId === ideaId ? { ...idea, ...updatedIdea } as Idea : idea
         ),
         currentIdea: state.currentIdea?.ideaId === ideaId
-          ? { ...state.currentIdea, ...updatedIdea }
+          ? { ...state.currentIdea, ...updatedIdea } as Idea
           : state.currentIdea
       }));
     } catch (error) {
@@ -207,12 +269,18 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
 
     try {
       // Generate expansion content
-      const content = await expandContent(
-        idea.originalIdea.text,
-        direction,
-        prompt,
-        userProfile || undefined
-      );
+      const response = await fetch('/api/ai/expand-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ideaText: idea.originalIdea.text,
+          direction,
+          directionPrompt: prompt,
+          userProfile: userProfile || undefined
+        })
+      });
+
+      const { content } = await response.json();
 
       const newExpansion: ExpansionPrompt = {
         direction,
@@ -241,6 +309,84 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
       console.error('Error adding expansion:', error);
       throw error;
     }
+  },
+
+  addCriticality: async (ideaId: string, category: string, content: string) => {
+    const idea = get().ideas.find(i => i.ideaId === ideaId);
+    if (!idea) return;
+
+    const newCriticality: Criticality = {
+      category,
+      content,
+      status: 'real_concern',
+      exploredAt: new Date().toISOString()
+    };
+
+    const updatedIdea = {
+      ...idea,
+      exploration: {
+        ...idea.exploration,
+        criticalities: [...idea.exploration.criticalities, newCriticality]
+      },
+      metadata: {
+        ...idea.metadata,
+        explorationsCount: idea.metadata.explorationsCount + 1
+      }
+    };
+
+    await get().updateIdea(ideaId, updatedIdea);
+    await get().updateDocument(ideaId);
+  },
+
+  addOpportunity: async (ideaId: string, type: string, content: string) => {
+    const idea = get().ideas.find(i => i.ideaId === ideaId);
+    if (!idea) return;
+
+    const newOpportunity: Opportunity = {
+      type,
+      content,
+      exploredAt: new Date().toISOString()
+    };
+
+    const updatedIdea = {
+      ...idea,
+      exploration: {
+        ...idea.exploration,
+        opportunities: [...idea.exploration.opportunities, newOpportunity]
+      },
+      metadata: {
+        ...idea.metadata,
+        explorationsCount: idea.metadata.explorationsCount + 1
+      }
+    };
+
+    await get().updateIdea(ideaId, updatedIdea);
+    await get().updateDocument(ideaId);
+  },
+
+  updateCriticalityStatus: async (
+    ideaId: string,
+    criticalityIndex: number,
+    status: 'real_concern' | 'manageable' | 'not_applicable'
+  ) => {
+    const idea = get().ideas.find(i => i.ideaId === ideaId);
+    if (!idea || !idea.exploration.criticalities[criticalityIndex]) return;
+
+    const updatedCriticalities = [...idea.exploration.criticalities];
+    updatedCriticalities[criticalityIndex] = {
+      ...updatedCriticalities[criticalityIndex],
+      status
+    };
+
+    const updatedIdea = {
+      ...idea,
+      exploration: {
+        ...idea.exploration,
+        criticalities: updatedCriticalities
+      }
+    };
+
+    await get().updateIdea(ideaId, updatedIdea);
   },
 
   updateDocument: async (ideaId: string) => {
@@ -273,10 +419,16 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
       });
 
       // Generate new summary
-      const summary = await generateDocumentSummary(
-        idea.originalIdea.text,
-        exploredContent
-      );
+      const response = await fetch('/api/ai/generate-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          originalIdea: idea.originalIdea.text,
+          exploredContent
+        })
+      });
+
+      const { summary } = await response.json();
 
       const updatedDocument = {
         ...idea.document,
