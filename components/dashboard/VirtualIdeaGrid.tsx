@@ -7,9 +7,10 @@ import type { Idea } from '@/types';
 interface VirtualIdeaGridProps {
   ideas: Idea[];
   onIdeaClick: (ideaId: string) => void;
+  onIdeaDelete?: (ideaId: string) => Promise<void>;
 }
 
-export function VirtualIdeaGrid({ ideas, onIdeaClick }: VirtualIdeaGridProps) {
+export function VirtualIdeaGrid({ ideas, onIdeaClick, onIdeaDelete }: VirtualIdeaGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
   const [columns, setColumns] = useState(3);
@@ -76,6 +77,12 @@ export function VirtualIdeaGrid({ ideas, onIdeaClick }: VirtualIdeaGridProps) {
             key={idea.ideaId}
             idea={idea}
             onClick={() => onIdeaClick(idea.ideaId)}
+            onDelete={onIdeaDelete ? async (e) => {
+              e.stopPropagation();
+              if (confirm('Are you sure you want to delete this idea? This action cannot be undone.')) {
+                await onIdeaDelete(idea.ideaId);
+              }
+            } : undefined}
           />
         ))}
       </div>

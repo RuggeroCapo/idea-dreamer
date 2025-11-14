@@ -3,7 +3,7 @@ import { generateDocumentSummary } from '@/lib/gemini';
 
 export async function POST(request: NextRequest) {
   try {
-    const { originalIdea, exploredContent } = await request.json();
+    const { originalIdea, exploredContent, userProfile } = await request.json();
 
     if (!originalIdea || !exploredContent) {
       return NextResponse.json(
@@ -12,7 +12,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const summary = await generateDocumentSummary(originalIdea, exploredContent);
+    const summary = await generateDocumentSummary(
+      originalIdea,
+      exploredContent,
+      userProfile
+    );
 
     return NextResponse.json({ summary });
   } catch (error) {

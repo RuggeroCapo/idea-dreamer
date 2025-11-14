@@ -2,9 +2,10 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Sparkles, AlertTriangle, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Sparkles, AlertTriangle, Lightbulb, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useIdeasStore } from '@/store/ideasStore';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -19,7 +20,8 @@ import type { Criticality, Opportunity } from '@/types';
 export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: string }> }) {
   const { ideaId } = use(params);
   const router = useRouter();
-  const { currentIdea, setCurrentIdea } = useIdeasStore();
+  const { currentIdea, setCurrentIdea, deleteIdea } = useIdeasStore();
+  const { userProfile } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'expansion' | 'criticalities' | 'opportunities'>('expansion');
 
   const [isGeneratingCriticalities, setIsGeneratingCriticalities] = useState(false);
@@ -56,7 +58,8 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ideaText: currentIdea.originalIdea.text
+            ideaText: currentIdea.originalIdea.text,
+            userProfile
           })
         });
 
@@ -73,7 +76,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
     };
 
     loadDirections();
-  }, [currentIdea?.ideaId]);
+  }, [currentIdea?.ideaId, userProfile]);
 
   if (!currentIdea) {
     return (
@@ -103,7 +106,8 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
         body: JSON.stringify({
           ideaText: currentIdea.originalIdea.text,
           direction,
-          directionPrompt: prompt
+          directionPrompt: prompt,
+          userProfile
         })
       });
 
@@ -172,7 +176,8 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
         body: JSON.stringify({
           ideaText: currentIdea.originalIdea.text,
           direction: expansionModal.direction,
-          directionPrompt: expansionModal.prompt
+          directionPrompt: expansionModal.prompt,
+          userProfile
         })
       });
 
@@ -206,8 +211,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ideaText: currentIdea.originalIdea.text,
-          summary: currentIdea.document.summary,
-          expansions: currentIdea.exploration.expansionPrompts
+          userProfile
         })
       });
 
@@ -246,8 +250,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ideaText: currentIdea.originalIdea.text,
-          summary: currentIdea.document.summary,
-          expansions: currentIdea.exploration.expansionPrompts
+          userProfile
         })
       });
 
@@ -322,6 +325,21 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
               <ArrowLeft className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Back to Ideas</span>
               <span className="sm:hidden">Back</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                if (confirm('Are you sure you want to delete this idea? This action cannot be undone.')) {
+                  await deleteIdea(ideaId);
+                  router.push('/dashboard');
+                }
+              }}
+              className="mb-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Delete Idea</span>
+              <span className="sm:hidden">Delete</span>
             </Button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AITagSuggestion, AIExpansionDirection, UserProfile } from '@/types';
+import { formatUserProfile, getComplexityGuidance, getUseCaseGuidance } from './promptUtils';
 
 // Get API key from environment variable
 const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
@@ -22,10 +23,15 @@ export async function generateTags(
   existingTags: string[] = []
 ): Promise<string[]> {
   try {
+    const profileContext = formatUserProfile(userProfile);
+    
     const prompt = `
-User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+${profileContext}
+
 Existing Tags Used: ${existingTags.join(', ') || 'None'}
 New Idea: "${ideaText}"
+
+IMPORTANT: Generate tags in the SAME LANGUAGE as the idea text above. Match the language exactly.
 
 Generate 3-5 relevant tags for this idea that:
 - Match the user's domain and interests
@@ -63,9 +69,14 @@ export async function generateExplorationDirections(
   userProfile?: UserProfile
 ): Promise<AIExpansionDirection[]> {
   try {
+    const profileContext = formatUserProfile(userProfile);
+    
     const prompt = `
-User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+${profileContext}
+
 Idea: "${ideaText}"
+
+IMPORTANT: Respond in the SAME LANGUAGE as the idea text above. Match the language exactly.
 
 Generate 4-5 different exploration directions for this idea. For each direction, provide:
 - A title (2-4 words)
@@ -112,17 +123,23 @@ export async function expandContent(
   userProfile?: UserProfile
 ): Promise<string> {
   try {
+    const profileContext = formatUserProfile(userProfile);
+    const complexityGuidance = getComplexityGuidance(userProfile);
+    
     const prompt = `
-User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+${profileContext}
+
 Original Idea: "${ideaText}"
 Selected Direction: "${direction}"
 Exploration Prompt: "${directionPrompt}"
+
+IMPORTANT: Respond in the SAME LANGUAGE as the original idea text above. Match the language exactly.
 
 Generate a detailed expansion exploring this direction:
 - Length: 200-400 words
 - Tone: Professional yet accessible
 - Focus on actionable insights and concrete details
-- Consider user's background and expertise level
+- ${complexityGuidance}
 
 Provide only the expansion content, no meta-commentary.
 `;
@@ -141,18 +158,25 @@ Provide only the expansion content, no meta-commentary.
  */
 export async function generateDocumentSummary(
   originalIdea: string,
-  exploredContent: { section: string; content: string }[]
+  exploredContent: { section: string; content: string }[],
+  userProfile?: UserProfile
 ): Promise<string> {
   try {
     const sectionsText = exploredContent
       .map(item => `### ${item.section}\n${item.content}`)
       .join('\n\n');
 
+    const profileContext = formatUserProfile(userProfile);
+
     const prompt = `
+${profileContext}
+
 Original Idea: "${originalIdea}"
 
 Explored Sections:
 ${sectionsText}
+
+IMPORTANT: Respond in the SAME LANGUAGE as the original idea and explored sections above. Match the language exactly.
 
 Generate a cohesive summary document that:
 - Starts with the original idea
@@ -160,6 +184,7 @@ Generate a cohesive summary document that:
 - Maintains user-edited content exactly as-is
 - Fills in transitions between sections
 - Is professional yet accessible
+- Adjusts tone and depth based on the user's professional context
 
 Format as markdown with clear headings. Include only ## heading level for main sections.
 `;
@@ -236,9 +261,15 @@ export async function generateCriticalities(
   userProfile?: UserProfile
 ): Promise<{ category: string; content: string; severity: 'high' | 'medium' | 'low' }[]> {
   try {
+    const profileContext = formatUserProfile(userProfile);
+    const complexityGuidance = getComplexityGuidance(userProfile);
+    
     const prompt = `
-User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+${profileContext}
+
 Idea: "${ideaText}"
+
+IMPORTANT: Respond in the SAME LANGUAGE as the idea text above. Match the language exactly.
 
 Analyze potential criticalities, challenges, or concerns with this idea. Generate 3-5 criticalities covering:
 - Technical challenges
@@ -246,6 +277,8 @@ Analyze potential criticalities, challenges, or concerns with this idea. Generat
 - Resource requirements
 - Implementation barriers
 - Ethical or social concerns
+
+${complexityGuidance}
 
 For each criticality, provide:
 - Category (e.g., "Technical Complexity", "Market Risk", "Resource Constraints")
@@ -288,9 +321,15 @@ export async function generateOpportunities(
   userProfile?: UserProfile
 ): Promise<{ type: string; content: string; potential: 'high' | 'medium' | 'low' }[]> {
   try {
+    const profileContext = formatUserProfile(userProfile);
+    const useCaseGuidance = getUseCaseGuidance(userProfile);
+    
     const prompt = `
-User Profile: ${userProfile ? JSON.stringify(userProfile.profile) : 'Not provided'}
+${profileContext}
+
 Idea: "${ideaText}"
+
+IMPORTANT: Respond in the SAME LANGUAGE as the idea text above. Match the language exactly.
 
 Identify potential opportunities and positive aspects of this idea. Generate 3-5 opportunities covering:
 - Market opportunities
@@ -298,6 +337,8 @@ Identify potential opportunities and positive aspects of this idea. Generate 3-5
 - Competitive advantages
 - Growth possibilities
 - Positive impact areas
+
+${useCaseGuidance}
 
 For each opportunity, provide:
 - Type (e.g., "Market Gap", "Innovation", "Scalability", "Social Impact")

@@ -393,6 +393,8 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
     const idea = get().ideas.find(i => i.ideaId === ideaId);
     if (!idea) return;
 
+    const { userProfile } = useAuthStore.getState();
+
     try {
       // Collect all explored content
       const exploredContent: { section: string; content: string }[] = [];
@@ -424,7 +426,8 @@ export const useIdeasStore = create<IdeasState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           originalIdea: idea.originalIdea.text,
-          exploredContent
+          exploredContent,
+          userProfile: userProfile || undefined
         })
       });
 
