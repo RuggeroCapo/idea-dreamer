@@ -63,7 +63,7 @@ export function VirtualIdeaGrid({ ideas, onIdeaClick }: VirtualIdeaGridProps) {
   return (
     <div ref={containerRef} style={{ minHeight: `${totalHeight}px`, position: 'relative' }}>
       <div
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 auto-rows-auto"
         style={{
           position: 'absolute',
           top: `${offsetTop}px`,

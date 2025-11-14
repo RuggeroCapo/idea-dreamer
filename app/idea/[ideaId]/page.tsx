@@ -49,7 +49,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
   useEffect(() => {
     const loadDirections = async () => {
       if (!currentIdea) return;
-      
+
       setIsLoadingDirections(true);
       try {
         const response = await fetch('/api/ai/generate-directions', {
@@ -110,7 +110,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
       if (!response.ok) throw new Error('Failed to expand content');
 
       const data = await response.json();
-      
+
       setExpansionModal(prev => ({
         ...prev,
         content: data.content,
@@ -164,7 +164,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
 
   const handleRegenerateInModal = async () => {
     setExpansionModal(prev => ({ ...prev, isGenerating: true, content: '' }));
-    
+
     try {
       const response = await fetch('/api/ai/expand-content', {
         method: 'POST',
@@ -179,7 +179,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
       if (!response.ok) throw new Error('Failed to expand content');
 
       const data = await response.json();
-      
+
       setExpansionModal(prev => ({
         ...prev,
         content: data.content,
@@ -198,7 +198,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
 
   const handleGenerateCriticalities = async () => {
     if (!currentIdea) return;
-    
+
     setIsGeneratingCriticalities(true);
     try {
       const response = await fetch('/api/ai/generate-criticalities', {
@@ -214,7 +214,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
       if (!response.ok) throw new Error('Failed to generate criticalities');
 
       const data = await response.json();
-      
+
       const newCriticalities: Criticality[] = data.criticalities.map((c: any) => ({
         category: c.category,
         content: c.content,
@@ -238,7 +238,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
 
   const handleGenerateOpportunities = async () => {
     if (!currentIdea) return;
-    
+
     setIsGeneratingOpportunities(true);
     try {
       const response = await fetch('/api/ai/generate-opportunities', {
@@ -254,7 +254,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
       if (!response.ok) throw new Error('Failed to generate opportunities');
 
       const data = await response.json();
-      
+
       const newOpportunities: Opportunity[] = data.opportunities.map((o: any) => ({
         type: o.type,
         content: o.content,
@@ -277,10 +277,10 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
 
   const handleUpdateCriticality = async (index: number, updatedCriticality: Criticality) => {
     if (!currentIdea) return;
-    
+
     const updatedCriticalities = [...currentIdea.exploration.criticalities];
     updatedCriticalities[index] = updatedCriticality;
-    
+
     await useIdeasStore.getState().updateIdea(currentIdea.ideaId, {
       ...currentIdea,
       exploration: {
@@ -292,10 +292,10 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
 
   const handleUpdateOpportunity = async (index: number, updatedOpportunity: Opportunity) => {
     if (!currentIdea) return;
-    
+
     const updatedOpportunities = [...currentIdea.exploration.opportunities];
     updatedOpportunities[index] = updatedOpportunity;
-    
+
     await useIdeasStore.getState().updateIdea(currentIdea.ideaId, {
       ...currentIdea,
       exploration: {
@@ -312,16 +312,18 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
       {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/dashboard')}
-            className="mb-2"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Back to Ideas</span>
-            <span className="sm:hidden">Back</span>
-          </Button>
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard')}
+              className="mb-2"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Back to Ideas</span>
+              <span className="sm:hidden">Back</span>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -469,7 +471,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
                                   <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                                     {direction.description}
                                   </p>
-                                  <p className="text-xs sm:text-sm text-primary/80 italic">
+                                  <p className="text-xs sm:text-sm text-primary/80">
                                     "{direction.prompt}"
                                   </p>
                                 </div>
@@ -545,7 +547,7 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ ideaId: s
                         {showCustomPrompt ? '▲' : '▼'}
                       </span>
                     </Button>
-                    
+
                     {showCustomPrompt && (
                       <div className="mt-3">
                         <CustomExpansionPrompt

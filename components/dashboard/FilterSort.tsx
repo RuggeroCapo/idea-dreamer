@@ -70,13 +70,13 @@ export function FilterSort({
       {/* Sort Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 rounded-full shadow-sm transition-all">
             <SortAsc className="h-4 w-4 mr-2" />
             {sortLabels[sortBy]}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+        <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg rounded-xl">
+          <DropdownMenuLabel className="text-gray-700 font-semibold">Sort By</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuRadioGroup value={sortBy} onValueChange={(v) => onSortChange(v as SortOption)}>
             <DropdownMenuRadioItem value="newest">Newest First</DropdownMenuRadioItem>
@@ -91,18 +91,18 @@ export function FilterSort({
       {/* Filter Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 rounded-full shadow-sm transition-all">
             <Filter className="h-4 w-4 mr-2" />
             Filters
             {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="ml-2 px-1.5 py-0 text-xs">
+              <Badge variant="secondary" className="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-700 border border-purple-300/50 rounded-full">
                 {activeFiltersCount}
               </Badge>
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel>Filter By</DropdownMenuLabel>
+        <DropdownMenuContent align="end" className="w-64 bg-white/95 backdrop-blur-sm border-2 border-gray-200 shadow-lg rounded-xl">
+          <DropdownMenuLabel className="text-gray-700 font-semibold">Filter By</DropdownMenuLabel>
           <DropdownMenuSeparator />
           
           {/* Exploration Status */}
@@ -167,7 +167,7 @@ export function FilterSort({
 
       {/* Clear Filters */}
       {activeFiltersCount > 0 && (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
+        <Button variant="ghost" size="sm" onClick={clearFilters} className="hover:bg-rose-50 rounded-full">
           <X className="h-4 w-4 mr-2" />
           Clear
         </Button>
@@ -175,12 +175,16 @@ export function FilterSort({
 
       {/* Active Filter Tags */}
       {filters.tags.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {filters.tags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="cursor-pointer" onClick={() => toggleTag(tag)}>
-              {tag}
-              <X className="ml-1 h-3 w-3" />
-            </Badge>
+            <span
+              key={tag}
+              onClick={() => toggleTag(tag)}
+              className="cursor-pointer px-3 py-1 bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 rounded-full text-xs font-medium border border-purple-300/50 hover:from-purple-200 hover:to-purple-300 transition-all shadow-sm flex items-center gap-1"
+            >
+              #{tag}
+              <X className="h-3 w-3" />
+            </span>
           ))}
         </div>
       )}

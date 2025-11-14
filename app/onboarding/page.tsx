@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { LoadingScreen } from '@/components/ui/loading-screen';
 
 const AREAS_OF_INTEREST = [
   'Technology', 'Business', 'Creative Arts', 'Science', 'Education',
@@ -103,14 +104,7 @@ export default function OnboardingPage() {
   const canProceedStep4 = formData.primaryUseCase !== '';
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Setting up your journal..." />;
   }
 
   if (!isAuthenticated || !user) {
